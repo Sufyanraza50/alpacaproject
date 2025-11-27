@@ -1,189 +1,142 @@
-import tkinter as tk
-from tkinter import ttk
+import sys
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QSizePolicy
 from alpaca_client import get_account_info, get_stock_price, get_positions
 
+stock_symbols = ["AAPL", "MSFT", "TSLA", "AMZN", "NVDA", "META"]
 
-def create_gui():
-    window = tk.Tk()
-    window.title("AlgoAI Trading Bot")
-    window.geometry("850x500")
-    
+class TradingBotGUI(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("AlgoAI Trading Bot")
+        self.setGeometry(100, 100, 1200, 600)
 
-    # ---------------------------------------------------------
-    # ACCOUNT INFO FRAME (TOP-LEFT)
-    # ---------------------------------------------------------
-    account_frame = tk.Frame(window, bg="#f0f0f0", bd=2, relief="groove")
-    account_frame.place(x=10, y=10, width=250, height=120)
+        # Main horizontal layout
+        main_layout = QHBoxLayout()
+        self.setLayout(main_layout)
 
-    title_label = tk.Label(account_frame, text="Account Info", font=("Arial", 12, "bold"), bg="#f0f0f0")
-    title_label.pack(pady=5)
+        # -------------------------------
+        # Left panel: Account Info + Stock Prices
+        # -------------------------------
+        left_panel = QVBoxLayout()
+        main_layout.addLayout(left_panel, stretch=1)
 
-    status_label = tk.Label(account_frame, text="Status: ----", font=("Arial", 10), bg="#f0f0f0")
-    status_label.pack(anchor="w", padx=10)
+        # Account Info (top-left)
+        self.account_layout = QVBoxLayout()
+        left_panel.addLayout(self.account_layout)
+        self.account_layout.addWidget(QLabel("<b>Account Info</b>"))
 
-    equity_label = tk.Label(account_frame, text="Equity: ----", font=("Arial", 10), bg="#f0f0f0")
-    equity_label.pack(anchor="w", padx=10)
+        self.status_label = QLabel("Status: ----")
+        self.equity_label = QLabel("Equity: ----")
+        self.buying_power_label = QLabel("Buying Power: ----")
+        self.cash_label = QLabel("Cash: ----")
 
-    buying_power_label = tk.Label(account_frame, text="Buying Power: ----", font=("Arial", 10), bg="#f0f0f0")
-    buying_power_label.pack(anchor="w", padx=10)
+        self.account_layout.addWidget(self.status_label)
+        self.account_layout.addWidget(self.equity_label)
+        self.account_layout.addWidget(self.buying_power_label)
+        self.account_layout.addWidget(self.cash_label)
 
-    cash_label = tk.Label(account_frame, text="Cash: ----", font=("Arial", 10), bg="#f0f0f0")
-    cash_label.pack(anchor="w", padx=10)
+        # Stock Prices table (beneath Account Info)
+        self.stock_table = QTableWidget()
+        self.stock_table.setColumnCount(2)
+        self.stock_table.setHorizontalHeaderLabels(["Symbol", "Price"])
+        self.stock_table.setRowCount(len(stock_symbols))
+        self.stock_table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        left_panel.addWidget(QLabel("<b>Stock Prices</b>"))
+        left_panel.addWidget(self.stock_table)
 
+        # -------------------------------
+        # Right panel: Positions Table
+        # -------------------------------
+        right_panel = QVBoxLayout()
+        main_layout.addLayout(right_panel, stretch=2)
 
-    # ---------------------------------------------------------
-    # STOCK LIST FRAME (LEFT SIDE)
-    # ---------------------------------------------------------
-    stocks_frame = tk.Frame(window, bg="#f8f8f8", bd=2, relief="groove")
-    stocks_frame.place(x=10, y=140, width=250, height=340)
+        self.positions_table = QTableWidget()
+        self.positions_table.setColumnCount(7)
+        self.positions_table.setHorizontalHeaderLabels([
+            "Symbol", "Qty", "Entry Price", "Current Price", 
+            "Market Value", "Unrealized P/L", "Status"
+        ])
+        self.positions_table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        right_panel.addWidget(QLabel("<b>Open Positions</b>"))
+        right_panel.addWidget(self.positions_table)
 
-    stock_title = tk.Label(stocks_frame, text="Stock Prices", font=("Arial", 12, "bold"), bg="#f8f8f8")
-    stock_title.pack(pady=5)
+        # -------------------------------
+        # Timer for updates
+        # -------------------------------
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_data)
+        self.timer.start(5000)  # every 5 seconds
 
-    columns = ("Symbol", "Price")
-    stock_table = ttk.Treeview(stocks_frame, columns=columns, show="headings", height=15)
-    stock_table.heading("Symbol", text="Symbol")
-    stock_table.heading("Price", text="Price")
+        # Initial data load
+        self.update_data()
 
-    stock_table.column("Symbol", width=80)
-    stock_table.column("Price", width=120)
-
-    stock_table.pack(padx=5, pady=5)
-
-    stock_symbols = ["AAPL", "MSFT", "TSLA", "AMZN", "NVDA", "META"]
-
-
-    # ---------------------------------------------------------
-    # POSITIONS FRAME (CENTER)
-    # ---------------------------------------------------------
-    positions_frame = tk.Frame(window, bg="#f8f8f8", bd=2, relief="groove")
-    positions_frame.place(x=280, y=10, width=550, height=470)
-
-    pos_title = tk.Label(positions_frame, text="Open Positions", font=("Arial", 14, "bold"), bg="#f8f8f8")
-    pos_title.pack(pady=5)
-
-    pos_columns = ("Symbol", "Qty", "Entry Price", "Current Price", "Market Value", "Unrealized P/L", "Status")
-    positions_table = ttk.Treeview(positions_frame, columns=pos_columns, show="headings", height=22)
-
-    # Define column headings and proportional widths
-    positions_table.heading("Symbol", text="Symbol")
-    positions_table.heading("Qty", text="Qty")
-    positions_table.heading("Entry Price", text="Entry Price")
-    positions_table.heading("Current Price", text="Current Price")
-    positions_table.heading("Market Value", text="Market Value")
-    positions_table.heading("Unrealized P/L", text="Unrealized P/L")
-    positions_table.heading("Status", text="Status")
-
-    # Set column widths so all fit nicely in 550px
-    positions_table.column("Symbol", width=70, anchor="center")
-    positions_table.column("Qty", width=50, anchor="center")
-    positions_table.column("Entry Price", width=80, anchor="center")
-    positions_table.column("Current Price", width=90, anchor="center")
-    positions_table.column("Market Value", width=100, anchor="center")
-    positions_table.column("Unrealized P/L", width=90, anchor="center")
-    positions_table.column("Status", width=70, anchor="center")
-
-    positions_table.pack(padx=5, pady=5, fill="x")
-
-
-
-    # ---------------------------------------------------------
-    # AUTO FUNCTIONS
-    # ---------------------------------------------------------
-
-    def load_account_info():
+    def update_data(self):
+        # -------------------------------
+        # Update Account Info
+        # -------------------------------
         try:
             acc = get_account_info()
-
-            status_label.config(text=f"Status: {acc.status}")
-            equity_label.config(text=f"Equity: {float(acc.equity):,.2f}")
-            buying_power_label.config(text=f"Buying Power: {float(acc.buying_power):,.2f}")
-            cash_label.config(text=f"Cash: {float(acc.cash):,.2f}")
+            self.status_label.setText(f"Status: {acc.status}")
+            self.equity_label.setText(f"Equity: ${float(acc.equity):,.2f}")
+            self.buying_power_label.setText(f"Buying Power: ${float(acc.buying_power):,.2f}")
+            self.cash_label.setText(f"Cash: ${float(acc.cash):,.2f}")
         except Exception as e:
             print("Account error:", e)
 
-        window.after(5000, load_account_info)
-
-
-    def load_stock_prices():
+        # -------------------------------
+        # Update Stock Prices
+        # -------------------------------
         try:
-            stock_table.delete(*stock_table.get_children())
-
-            for symbol in stock_symbols:
+            for row, symbol in enumerate(stock_symbols):
                 price = get_stock_price(symbol)
-                price_text = f"${price:.2f}" if price else "---"
-                stock_table.insert("", "end", values=(symbol, price_text))
+                self.stock_table.setItem(row, 0, QTableWidgetItem(symbol))
+                self.stock_table.setItem(row, 1, QTableWidgetItem(f"${price:.2f}" if price else "---"))
+
+            # Resize columns and rows to fit content
+            self.stock_table.resizeColumnsToContents()
+            self.stock_table.resizeRowsToContents()
         except Exception as e:
-            print("Price error:", e)
+            print("Stock prices error:", e)
 
-        window.after(5000, load_stock_prices)
-
-
-    # ---------------------------------------------------------
-    # LOAD POSITIONS
-    # ---------------------------------------------------------
-    def load_positions():
+        # -------------------------------
+        # Update Positions
+        # -------------------------------
         try:
-            positions_table.delete(*positions_table.get_children())
+            positions = get_positions()
+            self.positions_table.setRowCount(len(positions) if positions else 1)
 
-            pos = get_positions()
-
-            for p in pos if pos else [None]:
-                if p is None:  # No positions
-                    values = ("---", "---", "---", "---", "---", "---", "CLOSED")
-                    # Tag the Status column only (simulate)
-                    tag = "closed"
-                    positions_table.insert("", "end", values=values, tags=(tag,))
-                else:
+            if not positions:
+                for col in range(7):
+                    self.positions_table.setItem(0, col, QTableWidgetItem("---"))
+            else:
+                for row, p in enumerate(positions):
                     pl = float(p.unrealized_pl)
                     pl_text = f"${pl:,.2f}"
-                    pl_tag = "profit" if pl >= 0 else "loss"
 
-                    status = "OPEN"
-                    status_tag = "open" if status == "OPEN" else "closed"
+                    self.positions_table.setItem(row, 0, QTableWidgetItem(p.symbol))
+                    self.positions_table.setItem(row, 1, QTableWidgetItem(str(p.qty)))
+                    self.positions_table.setItem(row, 2, QTableWidgetItem(f"${float(p.avg_entry_price):.2f}"))
+                    self.positions_table.setItem(row, 3, QTableWidgetItem(f"${float(p.current_price):.2f}"))
+                    self.positions_table.setItem(row, 4, QTableWidgetItem(f"${float(p.market_value):,.2f}"))
 
-                    values = (
-                        p.symbol,
-                        p.qty,
-                        f"${float(p.avg_entry_price):.2f}",
-                        f"${float(p.current_price):.2f}",
-                        f"${float(p.market_value):,.2f}",
-                        pl_text,
-                        status
-                    )
+                    pl_item = QTableWidgetItem(pl_text)
+                    pl_item.setForeground(Qt.GlobalColor.green if pl >= 0 else Qt.GlobalColor.red)
+                    self.positions_table.setItem(row, 5, pl_item)
 
-                    # Insert the row with a dummy tag
-                    positions_table.insert("", "end", values=values, tags=("normal",))
+                    status_item = QTableWidgetItem("OPEN")
+                    status_item.setForeground(Qt.GlobalColor.green)
+                    self.positions_table.setItem(row, 6, status_item)
 
-            # After insertion, loop through items and color **only two columns**
-            for iid in positions_table.get_children():
-                vals = positions_table.item(iid)["values"]
-                # Color Unrealized P/L
-                pl_val = vals[5]
-                pl_num = float(pl_val.replace("$", "").replace(",", "")) if pl_val != "---" else 0
-                pl_color = "green" if pl_num >= 0 else "red"
-                positions_table.tag_configure(f"pl_{iid}", foreground=pl_color)
-                # Color Status
-                status_val = vals[6]
-                status_color = "green" if status_val == "OPEN" else "red"
-                positions_table.tag_configure(f"status_{iid}", foreground=status_color)
-
-                # Assign tag
-                positions_table.item(iid, tags=(f"pl_{iid}", f"status_{iid}"))
+            # Resize columns and rows to fit content
+            self.positions_table.resizeColumnsToContents()
+            self.positions_table.resizeRowsToContents()
 
         except Exception as e:
             print("Positions error:", e)
 
-        window.after(5000, load_positions)
-
-    # Initial Loads
-    load_account_info()
-    load_stock_prices()
-    load_positions()
-
-    window.mainloop()
-
-
-
 if __name__ == "__main__":
-    create_gui()
+    app = QApplication(sys.argv)
+    window = TradingBotGUI()
+    window.show()
+    sys.exit(app.exec())
