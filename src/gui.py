@@ -3,7 +3,17 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QSizePolicy
 from alpaca_client import get_account_info, get_stock_price, get_positions
 
-stock_symbols = ["AAPL", "MSFT", "TSLA", "AMZN", "NVDA", "META"]
+stock_symbols = [
+    "AAPL","MSFT","GOOG","GOOGL","AMZN","NVDA","AVGO","META","TSLA","NFLX",
+    "ADBE","AMD","ABNB","AMGN","ADI","AMAT","ASML","ARM","AZN","TEAM",
+    "ADSK","ADP","AXON","BKR","BIIB","BKNG","CDNS","CDW","CHTR","CSCO",
+    "CCEP","CTAS","CSGP","COST","CPRT","CRWD","CSX","DDOG","DXCM","EA",
+    "EXC","FAST","FTNT","GILD","GEHC","HON","IDXX","INTC","INTU","ISRG",
+    "KDP","KLAC","LRCX","LIN","LULU","MAR","MRVL","MELI","MCHP","MDLZ",
+    "MNST","MU","NFLX","NXPI","ODFL","ON","ORLY","PCAR","PDD","PEP",
+    "QCOM","REGN","ROP","ROST","SBUX","SHOP","SNPS","TTD","TMUS","TTWO",
+    "TXN","VRSK","VRTX","WBD","WDAY","XEL","ZS"
+]
 
 class TradingBotGUI(QWidget):
     def __init__(self):
