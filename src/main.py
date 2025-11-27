@@ -1,9 +1,9 @@
 import sys
 from PyQt6.QtWidgets import QApplication
-from gui import TradingBotGUI  # Import the class, not a function
+from gui import TradingBotGUI
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)   # Create the Qt application
-    window = TradingBotGUI()       # Instantiate your GUI class
-    window.show()                  # Show the window
-    sys.exit(app.exec())           # Start the Qt event loop
+    app = QApplication(sys.argv)
+    window = TradingBotGUI()
+    window.show()
+    sys.exit(app.exec())
